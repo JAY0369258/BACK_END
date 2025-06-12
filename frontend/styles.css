@@ -1,0 +1,25 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f4f4f4;
+}
+header {
+  background-color: #333;
+  color: white;
+}
+main {
+  padding: 20px;
+}
+.product,
+.cart-item,
+.order {
+  border-radius: 5px;
+}
+form {
+  max-width: 400px;
+}
+.alert {
+  padding: 10px;
+  border-radius: 5px;
+}

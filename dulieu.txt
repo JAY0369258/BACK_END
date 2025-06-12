@@ -1,0 +1,87 @@
+Chạy server:
+node server.js
+Server sẽ chạy trên http://localhost:3000.
+Kiểm tra API (sử dụng Postman hoặc cURL):
+Đăng ký: POST http://localhost:3000/auth/register
+
+json
+{
+  "email": "user@example.com",
+  "password": "password123",
+  "name": "John Doe"
+}
+Đăng nhập: POST http://localhost:3000/auth/login
+json
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+Thêm danh mục: POST http://localhost:3000/categories (yêu cầu token admin)
+json
+{
+  "name": "Electronics"
+}
+Thêm sản phẩm: POST http://localhost:3000/products (yêu cầu token admin)
+json
+{
+  "name": "Laptop",
+  "price": 1000,
+  "description": "High-performance laptop",
+  "category": "category_id",
+  "stock": 10
+}
+
+Thêm vào giỏ hàng: POST http://localhost:3000/cart (yêu cầu token)
+json
+{
+  "productId": "product_id",
+  "quantity": 2
+}
+
+tai khoan admin
+Postman:
+Method: POST
+URL: http://localhost:3000/auth/register
+Body (JSON):
+json	
+{
+  "email": "newadmin@example.com",
+  "password": "admin123",
+  "name": "New Admin",
+  "adminSecret": "your_admin_secret_code"
+}
+
+
+***Chạy cả hai cùng lúc
+Vì back-end và front-end cần chạy đồng thời:
+
+Back-end: Chạy trong terminal đầu tiên tại thư mục ecommerce-api
+Front-end: Chạy trong terminal thứ hai tại thư mục frontend
+
+***Chạy back-end:
+bash
+
+Sao chép
+node server.js trong termiral
+
+Nếu thành công, bạn sẽ thấy:
+
+Server is running on port 3000
+MongoDB connected successfully
+Back-end sẽ chạy trên http://localhost:3000.
+
+
+***Chạy front-end:
+bash
+
+Sao chép
+live-server trong termiral
+live-server sẽ tự động mở trình duyệt tại http://localhost:8080 (hoặc cổng khác nếu 8080 bị chiếm dụng).
+Bạn sẽ thấy trang index.html hiển thị danh sách sản phẩm.
+Kiểm tra front-end:
+Truy cập http://localhost:8080 để xem danh sách sản phẩm.
+Nhấn vào liên kết "Cart" (cart.html) hoặc "Login" (login.html) để kiểm tra các trang khác.
+
+
+
+
