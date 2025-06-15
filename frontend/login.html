@@ -18,8 +18,9 @@
                     <a class="nav-link" href="index.html">Products</a>
                     <a class="nav-link" href="cart.html">Cart</a>
                     <a class="nav-link" href="orders.html">Orders</a>
-                    <a class="nav-link" href="login.html">Login</a>
+                    <a class="nav-link active" href="login.html">Login</a>
                     <a class="nav-link" href="register.html">Register</a>
+                    <a class="nav-link" href="admin.html" id="admin-link">Admin</a>
                     <span class="nav-link" id="user-status">Not logged in</span>
                 </div>
             </div>
@@ -38,15 +39,17 @@
             </div>
             <button type="submit" class="btn btn-primary">Login</button>
         </form>
-        <p id="login-error" class="text-danger mt-3"></p>
+        <p id="error" class="text-danger mt-3"></p>
     </main>
     <script src="scripts.js"></script>
     <script>
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await login();
+        document.addEventListener('DOMContentLoaded', () => {
+            updateUserStatus();
+            document.getElementById('login-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await login();
+            });
         });
-        document.addEventListener('DOMContentLoaded', updateUserStatus);
     </script>
 </body>
 

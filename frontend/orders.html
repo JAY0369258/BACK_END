@@ -4,36 +4,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E-commerce - Orders</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Orders</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 
 <body>
-    <header>
-        <h1 class="text-center py-3 bg-dark text-white">E-commerce Store</h1>
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-            <div class="container">
-                <div class="navbar-nav">
-                    <a class="nav-link" href="index.html">Products</a>
-                    <a class="nav-link" href="cart.html">Cart</a>
-                    <a class="nav-link" href="orders.html">Orders</a>
-                    <a class="nav-link" href="login.html">Login</a>
-                    <a class="nav-link" href="register.html">Register</a>
-                    <span class="nav-link" id="user-status">Not logged in</span>
-                </div>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <div class="navbar-nav">
+                <a class="nav-link" href="index.html">Products</a>
+                <a class="nav-link" href="cart.html">Cart <span id="cart-count" class="badge bg-primary">0</span></a>
+                <a class="nav-link active" href="orders.html">Orders</a>
+                <a class="nav-link" href="login.html" id="login-link">Login</a>
+                <a class="nav-link" href="register.html">Register</a>
+                <a class="nav-link" href="admin.html" id="admin-link" style="display: none;">Admin</a>
+                <a class="nav-link" href="#" id="logout-link" style="display: none;">Logout</a>
+                <span class="nav-link" id="user-status">Not logged in</span>
             </div>
-        </nav>
-    </header>
-    <main class="container mt-4">
+        </div>
+    </nav>
+
+    <div class="container mt-4">
         <h2>Your Orders</h2>
-        <div id="order-list"></div>
-    </main>
+        <div id="order-list" class="row"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="scripts.js"></script>
     <script>
+        async function fetchOrders() {
+            const token = getToken();
+            if (!token) {
+                const orderList = document.getElementById('order-list');
+                if (orderList) orderList.innerHTML = '<p>Please login to view your orders.</p>';
+                return;
+            }
+            try {
+                const response = await fetch(`${API_URL}/orders`, {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                });
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        localStorage.removeItem('token');
+                        window.location.href = 'login.html';
+                        return;
+                    }
+                    throw new Error('Failed to fetch orders');
+                }
+                const orders = await response.json();
+                const orderList = document.getElementById('order-list');
+                if (!orderList) return;
+                orderList.innerHTML = '';
+                if (orders.length === 0) {
+                    orderList.innerHTML = '<p>No orders found.</p>';
+                    return;
+                }
+                orders.forEach(order => {
+                    const div = document.createElement('div');
+                    div.className = 'order card mb-3';
+                    div.innerHTML = `
+            <div class="card-body">
+              <h5 class="card-title">Order #${order._id}</h5>
+              <p class="card-text">Status: ${order.status}</p>
+              <p class="card-text">Total: $${order.totalPrice.toFixed(2)}</p>
+              <p class="card-text">Date: ${new Date(order.createdAt).toLocaleString()}</p>
+              <h6>Shipping Information</h6>
+              ${order.shippingInfo
+                            ? `
+                    <p><strong>Recipient:</strong> ${order.shippingInfo.recipientName}</p>
+                    <p><strong>Address:</strong> ${order.shippingInfo.street}, ${order.shippingInfo.district}, ${order.shippingInfo.city}</p>
+                    <p><strong>Phone:</strong> ${order.shippingInfo.phone}</p>
+                    ${order.shippingInfo.notes ? `<p><strong>Notes:</strong> ${order.shippingInfo.notes}</p>` : ''}
+                  `
+                            : '<p>No shipping information provided.</p>'
+                        }
+              <h6>Payment Information</h6>
+              <p><strong>Method:</strong> ${order.paymentMethod || 'Unknown'}</p>
+              <p><strong>Status:</strong> ${order.paymentStatus === 'pending' ? 'Pending (Pay when receiving)' : order.paymentStatus}</p>
+              <h6>Items</h6>
+              <ul>
+                ${order.items.map(item => `
+                  <li>${item.product.name} - $${item.price} x ${item.quantity}</li>
+                `).join('')}
+              </ul>
+            </div>
+          `;
+                    orderList.appendChild(div);
+                });
+            } catch (error) {
+                console.error('fetchOrders - Error:', error);
+                const orderList = document.getElementById('order-list');
+                if (orderList) orderList.innerHTML = `<p class="text-danger">Error loading orders: ${error.message}</p>`;
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
-            fetchOrders();
             updateUserStatus();
+            fetchOrders();
         });
     </script>
 </body>

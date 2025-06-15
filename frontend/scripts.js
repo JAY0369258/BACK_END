@@ -1,311 +1,403 @@
 const API_URL = "http://localhost:3000";
 
-// Get token from localStorage
 function getToken() {
-  return localStorage.getItem("token");
+  const token = localStorage.getItem("token");
+  console.log("getToken - Token:", token);
+  return token;
 }
 
-// Update user status in navigation
-function updateUserStatus() {
-  const userStatus = document.getElementById("user-status");
-  userStatus.textContent = getToken() ? "Logged in" : "Not logged in";
+async function addToCart(productId) {
+  const token = getToken();
+  console.log("addToCart - Token:", token);
+  console.log("addToCart - Product ID:", productId);
+  if (!token) {
+    console.log("addToCart - No token, redirecting to login.html");
+    alert("Please login to add items to cart");
+    window.location.href = "login.html";
+    return;
+  }
+  try {
+    console.log("addToCart - Sending POST /cart with body:", {
+      productId,
+      quantity: 1,
+    });
+    const response = await fetch(`${API_URL}/cart`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ productId, quantity: 1 }),
+    });
+    console.log("addToCart - Response status:", response.status);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("addToCart - Error response:", errorData);
+      if (response.status === 401) {
+        console.log(
+          "addToCart - 401 Unauthorized, clearing token and redirecting"
+        );
+        localStorage.removeItem("token");
+        alert("Session expired. Please login again.");
+        window.location.href = "login.html";
+        return;
+      }
+      throw new Error(
+        errorData.message ||
+          `Failed to add to cart (status: ${response.status})`
+      );
+    }
+    const cart = await response.json();
+    console.log("addToCart - Cart updated:", cart);
+    alert("Product added to cart!");
+    await fetchCart();
+    await updateCartCount();
+  } catch (error) {
+    console.error("addToCart - Error:", error);
+    alert(`Error adding to cart: ${error.message}`);
+  }
 }
 
-//fetchProduct
+async function fetchCart() {
+  const token = getToken();
+  if (!token) {
+    console.log("fetchCart - No token, clearing cart display");
+    const cartItems = document.getElementById("cart-items");
+    if (cartItems)
+      cartItems.innerHTML = "<p>Please login to view your cart.</p>";
+    return;
+  }
+  try {
+    console.log("fetchCart - Fetching cart from:", `${API_URL}/cart`);
+    const response = await fetch(`${API_URL}/cart`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("fetchCart - Error response:", errorData);
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        const cartItems = document.getElementById("cart-items");
+        if (cartItems)
+          cartItems.innerHTML = "<p>Session expired. Please login again.</p>";
+        return;
+      }
+      throw new Error(errorData.message || "Failed to fetch cart");
+    }
+    const cart = await response.json();
+    console.log("fetchCart - Cart data:", cart);
+    const cartItems = document.getElementById("cart-items");
+    if (!cartItems) {
+      console.warn("fetchCart - Cart items element not found");
+      return;
+    }
+    cartItems.innerHTML = "";
+    if (!cart.items || cart.items.length === 0) {
+      cartItems.innerHTML = "<p>Your cart is empty.</p>";
+      return;
+    }
+    cart.items.forEach((item) => {
+      const product = item.product;
+      const div = document.createElement("div");
+      div.className = "cart-item card mb-3";
+      div.innerHTML = `
+        <div class="card-body">
+          ${
+            product.image
+              ? `<img src="${API_URL}${product.image}" alt="${product.name}" class="img-fluid mb-2" style="max-width: 80px;">`
+              : ""
+          }
+          <h5 class="card-title">${product.name}</h5>
+          <p class="card-text">Price: $${product.price}</p>
+          <p class="card-text">Quantity: ${item.quantity}</p>
+          <button class="btn btn-danger btn-sm" onclick="removeFromCart('${
+            product._id
+          }')">Remove</button>
+        </div>
+      `;
+      cartItems.appendChild(div);
+    });
+    const totalPrice = cart.items.reduce(
+      (sum, item) => sum + item.product.price * item.quantity,
+      0
+    );
+    const cartTotal = document.getElementById("cart-total");
+    if (cartTotal) cartTotal.textContent = `Total: $${totalPrice.toFixed(2)}`;
+  } catch (error) {
+    console.error("fetchCart - Error:", error);
+    const cartItems = document.getElementById("cart-items");
+    if (cartItems)
+      cartItems.innerHTML = `<p class="text-danger">Error loading cart: ${error.message}</p>`;
+  }
+}
+
+async function removeFromCart(productId) {
+  const token = getToken();
+  if (!token) {
+    alert("Please login to remove items from cart");
+    window.location.href = "login.html";
+    return;
+  }
+  try {
+    console.log(
+      "removeFromCart - Sending POST /cart/remove with productId:",
+      productId
+    );
+    const response = await fetch(`${API_URL}/cart/remove`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ productId }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        alert("Session expired. Please login again.");
+        window.location.href = "login.html";
+        return;
+      }
+      throw new Error(errorData.message || "Failed to remove item");
+    }
+    alert("Item removed from cart!");
+    await fetchCart();
+    await updateCartCount();
+  } catch (error) {
+    console.error("removeFromCart - Error:", error);
+    alert(`Error removing item: ${error.message}`);
+  }
+}
+
+async function updateCartCount() {
+  const cartCount = document.getElementById("cart-count");
+  if (!cartCount) return;
+  try {
+    const token = getToken();
+    if (!token) {
+      cartCount.textContent = "0";
+      return;
+    }
+    const response = await fetch(`${API_URL}/cart`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        cartCount.textContent = "0";
+        return;
+      }
+      throw new Error("Failed to fetch cart");
+    }
+    const cart = await response.json();
+    cartCount.textContent = cart.items ? cart.items.length : 0;
+    console.log("updateCartCount - Cart count:", cartCount.textContent);
+  } catch (error) {
+    console.error("updateCartCount - Error:", error);
+    cartCount.textContent = "0";
+  }
+}
+
 async function fetchProducts() {
   try {
-    const searchQuery = document.getElementById("search")?.value || "";
-    const url = searchQuery
-      ? `${API_URL}/products/search?q=${encodeURIComponent(searchQuery)}`
-      : `${API_URL}/products`;
-    console.log("Fetching products from:", url);
-    const response = await fetch(url);
-    if (!response.ok) throw new Error("Failed to fetch products");
-    const data = await response.json();
-    console.log("Response data:", data);
-    const products = searchQuery ? data.products : data;
+    console.log("Fetching products from:", `${API_URL}/products`);
+    const response = await fetch(`${API_URL}/products`);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(
+        errorData.message ||
+          `Failed to fetch products (status: ${response.status})`
+      );
+    }
+    const products = await response.json();
+    console.log("Products received:", products);
     const productList = document.getElementById("product-list");
     if (!productList) {
-      console.error("product-list element not found");
+      console.warn("Product list element not found");
       return;
     }
     productList.innerHTML = "";
+    if (products.length === 0) {
+      productList.innerHTML = "<p>No products available.</p>";
+      return;
+    }
     products.forEach((product) => {
       const div = document.createElement("div");
-      div.className = "product card mb-3";
+      div.className = "product card mb-3 col-md-4";
       div.innerHTML = `
         <div class="card-body">
-          ${product.image
-            ? `<img src="${API_URL}${product.image}" alt="${product.name}" class="img-fluid mb-3" style="max-width: 200px; border-radius: 5px;">`
-            : '<p class="text-muted">No image available</p>'
+          ${
+            product.image
+              ? `<img src="${API_URL}${product.image}" alt="${product.name}" class="img-fluid mb-3" style="max-width: 100px;">`
+              : ""
           }
-          <h3 class="card-title">${product.name}</h3>
+          <h5 class="card-title">${product.name}</h5>
           <p class="card-text">Price: $${product.price}</p>
-          <p class="card-text">Description: ${product.description || 'No description'}</p>
-          <p class="card-text">Category: ${product.category?.name || 'Unknown'}</p>
-          <p class="card-text">Stock: ${product.stock}</p>
-          <button class="btn btn-primary" onclick="addToCart('${product._id}')">Add to Cart</button>
+          <button class="btn btn-primary" onclick="addToCart('${
+            product._id
+          }')">Add to Cart</button>
         </div>
       `;
       productList.appendChild(div);
     });
   } catch (error) {
     console.error("Error fetching products:", error);
+    const productList = document.getElementById("product-list");
+    if (productList)
+      productList.innerHTML = `<p class="text-danger">Error loading products: ${error.message}</p>`;
   }
 }
 
-// Add to cart
-async function addToCart(productId) {
-  if (!getToken()) {
-    alert("Please login to add items to cart");
+async function updateUserStatus() {
+  const userStatus = document.getElementById("user-status");
+  const adminLink = document.getElementById("admin-link");
+  const loginLink = document.getElementById("login-link");
+  const logoutLink = document.getElementById("logout-link");
+
+  const token = getToken();
+  if (token) {
+    try {
+      const user = await fetchCurrentUser();
+      if (user) {
+        userStatus.textContent = `Logged in as ${user.role}`;
+        if (adminLink)
+          adminLink.style.display = user.role === "admin" ? "block" : "none";
+        if (loginLink) loginLink.style.display = "none";
+        if (logoutLink) logoutLink.style.display = "block";
+      } else {
+        localStorage.removeItem("token");
+        userStatus.textContent = "Not logged in";
+        if (adminLink) adminLink.style.display = "none";
+        if (loginLink) loginLink.style.display = "block";
+        if (logoutLink) logoutLink.style.display = "none";
+      }
+    } catch (error) {
+      console.error("Error checking user status:", error);
+      localStorage.removeItem("token");
+      userStatus.textContent = "Not logged in";
+      if (adminLink) adminLink.style.display = "none";
+      if (loginLink) loginLink.style.display = "block";
+      if (logoutLink) logoutLink.style.display = "none";
+    }
+  } else {
+    userStatus.textContent = "Not logged in";
+    if (adminLink) adminLink.style.display = "none";
+    if (loginLink) loginLink.style.display = "block";
+    if (logoutLink) logoutLink.style.display = "none";
+  }
+  updateCartCount();
+}
+
+async function fetchCurrentUser() {
+  try {
+    const response = await fetch(`${API_URL}/auth/me`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    });
+    if (!response.ok) throw new Error("Failed to fetch user");
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    return null;
+  }
+}
+
+async function submitOrder() {
+  const shippingForm = document.getElementById("shippingForm");
+  if (!shippingForm.checkValidity()) {
+    shippingForm.reportValidity();
+    return;
+  }
+  const shippingInfo = {
+    recipientName: document.getElementById("recipientName").value,
+    street: document.getElementById("street").value,
+    district: document.getElementById("district").value,
+    city: document.getElementById("city").value,
+    phone: document.getElementById("phone").value,
+    notes: document.getElementById("notes").value,
+  };
+  const paymentMethod = document.querySelector(
+    'input[name="paymentMethod"]:checked'
+  ).value;
+  console.log(
+    "submitOrder - Shipping info:",
+    shippingInfo,
+    "Payment Method:",
+    paymentMethod
+  );
+  try {
+    await placeOrder(shippingInfo, paymentMethod);
+    const modal = bootstrap.Modal.getInstance(
+      document.getElementById("shippingModal")
+    );
+    modal.hide();
+  } catch (error) {
+    console.error("submitOrder - Error:", error);
+    alert(`Error placing order: ${error.message}`);
+  }
+}
+
+async function placeOrder(shippingInfo, paymentMethod) {
+  const token = getToken();
+  console.log("placeOrder - Token:", token);
+  if (!token) {
+    console.log("placeOrder - No token, redirecting to login.html");
+    alert("Please login to place an order");
     window.location.href = "login.html";
     return;
   }
   try {
-    const response = await fetch(`${API_URL}/cart`, {
+    console.log("placeOrder - Checking cart before placing order");
+    const cartResponse = await fetch(`${API_URL}/cart`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!cartResponse.ok) {
+      if (cartResponse.status === 401) {
+        localStorage.removeItem("token");
+        alert("Session expired. Please login again.");
+        window.location.href = "login.html";
+        return;
+      }
+      throw new Error("Failed to fetch cart");
+    }
+    const cart = await cartResponse.json();
+    console.log("placeOrder - Cart data:", cart);
+    if (!cart.items || cart.items.length === 0) {
+      alert("Your cart is empty. Add products before placing an order.");
+      return;
+    }
+    console.log(
+      "placeOrder - Sending POST /orders with shipping info and payment method:",
+      shippingInfo,
+      paymentMethod
+    );
+    const response = await fetch(`${API_URL}/orders`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${getToken()}`,
+        Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ productId, quantity: 1 }),
+      body: JSON.stringify({ shippingInfo, paymentMethod }),
     });
-    if (!response.ok) throw new Error((await response.json()).message);
-    alert("Product added to cart");
-  } catch (error) {
-    alert("Error adding to cart: " + error.message);
-  }
-}
-
-// Fetch cart
-async function fetchCart() {
-  if (!getToken()) {
-    document.getElementById("cart-list").innerHTML =
-      '<p class="alert alert-warning">Please login to view cart</p>';
-    return;
-  }
-  try {
-    const response = await fetch(`${API_URL}/cart`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    });
-    if (!response.ok) throw new Error((await response.json()).message);
-    const cart = await response.json();
-    const cartList = document.getElementById("cart-list");
-    cartList.innerHTML = "";
-    if (cart.items.length === 0) {
-      cartList.innerHTML = '<p class="alert alert-info">Your cart is empty</p>';
-      document.getElementById("place-order").disabled = true;
-    } else {
-      cart.items.forEach((item) => {
-        const div = document.createElement("div");
-        div.className = "cart-item card mb-3";
-        div.innerHTML = `
-          <div class="card-body">
-            ${
-              item.product.image
-                ? `<img src="${API_URL}${item.product.image}" alt="${item.product.name}" class="img-fluid mb-3" style="max-width: 100px; border-radius: 5px;">`
-                : '<p class="text-muted">No image available</p>'
-            }
-            <h3 class="card-title">${item.product.name}</h3>
-            <p class="card-text">Price: $${item.product.price}</p>
-            <p class="card-text">Quantity: ${item.quantity}</p>
-            <button class="btn btn-danger" onclick="removeFromCart('${
-              item.product._id
-            }')">Remove</button>
-          </div>
-        `;
-        cartList.appendChild(div);
-      });
-      document.getElementById("place-order").disabled = false;
-      document.getElementById("place-order").onclick = placeOrder;
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("placeOrder - Error response:", errorData);
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        alert("Session expired. Please login again.");
+        window.location.href = "login.html";
+        return;
+      }
+      throw new Error(errorData.message || "Failed to place order");
     }
+    const order = await response.json();
+    console.log("placeOrder - Order created:", order);
+    alert("Order placed successfully!");
+    await fetchCart();
+    await updateCartCount();
+    window.location.href = "orders.html";
   } catch (error) {
-    document.getElementById(
-      "cart-list"
-    ).innerHTML = `<p class="alert alert-danger">Error: ${error.message}</p>`;
-  }
-}
-
-// Remove from cart
-async function removeFromCart(productId) {
-  try {
-    const response = await fetch(`${API_URL}/cart/${productId}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${getToken()}` },
-    });
-    if (!response.ok) throw new Error((await response.json()).message);
-    fetchCart();
-  } catch (error) {
-    alert("Error removing from cart: " + error.message);
-  }
-}
-
-// Place order
-async function placeOrder() {
-  try {
-    const response = await fetch(`${API_URL}/orders`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${getToken()}` },
-    });
-    if (!response.ok) throw new Error((await response.json()).message);
-    alert("Order placed successfully");
-    fetchCart();
-  } catch (error) {
-    alert("Error placing order: " + error.message);
-  }
-}
-
-// Login
-async function login() {
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-  const errorDiv = document.getElementById("login-error");
-  try {
-    const response = await fetch(`${API_URL}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!response.ok) throw new Error((await response.json()).message);
-    const data = await response.json();
-    localStorage.setItem("token", data.token);
-    errorDiv.textContent = "Login successful! Redirecting...";
-    setTimeout(() => (window.location.href = "index.html"), 1000);
-  } catch (error) {
-    errorDiv.textContent = "Error: " + error.message;
-  }
-}
-
-// Register
-async function register() {
-  const name = document.getElementById("name").value;
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
-  const errorDiv = document.getElementById("register-error");
-  try {
-    const response = await fetch(`${API_URL}/auth/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
-    });
-    if (!response.ok) throw new Error((await response.json()).message);
-    errorDiv.textContent = "Registration successful! Redirecting to login...";
-    setTimeout(() => (window.location.href = "login.html"), 1000);
-  } catch (error) {
-    errorDiv.textContent = "Error: " + error.message;
-  }
-}
-
-// Fetch orders
-async function fetchOrders() {
-  if (!getToken()) {
-    document.getElementById("order-list").innerHTML =
-      '<p class="alert alert-warning">Please login to view orders</p>';
-    return;
-  }
-  try {
-    const response = await fetch(`${API_URL}/orders`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    });
-    if (!response.ok) throw new Error((await response.json()).message);
-    const orders = await response.json();
-    const orderList = document.getElementById("order-list");
-    orderList.innerHTML = "";
-    if (orders.length === 0) {
-      orderList.innerHTML =
-        '<p class="alert alert-info">You have no orders</p>';
-    } else {
-      orders.forEach((order) => {
-        const div = document.createElement("div");
-        div.className = "order card mb-3";
-        div.innerHTML = `
-          <div class="card-body">
-            <h3 class="card-title">Order #${order._id}</h3>
-            <p class="card-text">Total: $${order.total}</p>
-            <p class="card-text">Status: ${order.status}</p>
-            <p class="card-text">Items:</p>
-            <ul>
-              ${order.items
-                .map(
-                  (item) => `
-                <li>
-                  ${
-                    item.product.image
-                      ? `<img src="${API_URL}${item.product.image}" alt="${item.product.name}" style="max-width: 50px; border-radius: 5px;" class="me-2">`
-                      : ""
-                  }
-                  ${item.product.name} - Quantity: ${item.quantity} - Price: $${
-                    item.price
-                  }
-                </li>
-              `
-                )
-                .join("")}
-            </ul>
-          </div>
-        `;
-        orderList.appendChild(div);
-      });
-    }
-  } catch (error) {
-    document.getElementById(
-      "order-list"
-    ).innerHTML = `<p class="alert alert-danger">Error: ${error.message}</p>`;
-  }
-}
-async function fetchCategories() {
-  try {
-    const response = await fetch(`${API_URL}/categories`);
-    if (!response.ok) throw new Error("Failed to fetch categories");
-    const categories = await response.json();
-    const categorySelect = document.getElementById("category");
-    if (categorySelect) {
-      categories.forEach((category) => {
-        const option = document.createElement("option");
-        option.value = category._id;
-        option.textContent = category.name;
-        categorySelect.appendChild(option);
-      });
-    }
-  } catch (error) {
-    console.error("Error fetching categories:", error);
-  }
-}
-
-async function addProduct() {
-  if (!getToken()) {
-    alert("Please login as admin");
-    window.location.href = "login.html";
-    return;
-  }
-  const name = document.getElementById("name").value;
-  const price = document.getElementById("price").value;
-  const description = document.getElementById("description").value;
-  const category = document.getElementById("category").value;
-  const stock = document.getElementById("stock").value;
-  const image = document.getElementById("image").files[0];
-  const errorDiv = document.getElementById("add-product-error");
-
-  const formData = new FormData();
-  formData.append("name", name);
-  formData.append("price", price);
-  formData.append("description", description);
-  formData.append("category", category);
-  formData.append("stock", stock);
-  if (image) formData.append("image", image);
-
-  try {
-    const response = await fetch(`${API_URL}/products`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${getToken()}`,
-      },
-      body: formData,
-    });
-    if (!response.ok) throw new Error((await response.json()).message);
-    errorDiv.textContent = "Product added successfully!";
-    document.getElementById("add-product-form").reset();
-  } catch (error) {
-    errorDiv.textContent = "Error: " + error.message;
+    console.error("placeOrder - Error:", error);
+    throw error;
   }
 }

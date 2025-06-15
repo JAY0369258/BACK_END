@@ -10,7 +10,7 @@ const productSchema = new mongoose.Schema({
     required: true,
   },
   stock: { type: Number, required: true, min: 0 },
-  image: { type: String }, // Đường dẫn cục bộ, ví dụ: /uploads/image.jpg
+  image: { type: String },
   createdAt: { type: Date, default: Date.now },
 });
 

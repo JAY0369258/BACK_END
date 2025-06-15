@@ -10,16 +10,35 @@ const orderSchema = new mongoose.Schema({
         required: true,
       },
       quantity: { type: Number, required: true, min: 1 },
-      price: { type: Number, required: true },
+      price: { type: Number, required: true, min: 0 },
     },
   ],
-  total: { type: Number, required: true },
+  totalPrice: { type: Number, required: true, min: 0 },
   status: {
     type: String,
-    enum: ["pending", "completed", "cancelled"],
+    enum: ["pending", "confirmed", "shipped", "delivered", "cancelled"],
     default: "pending",
   },
   createdAt: { type: Date, default: Date.now },
+  shippingInfo: {
+    recipientName: { type: String, required: true },
+    street: { type: String, required: true },
+    district: { type: String, required: true },
+    city: { type: String, required: true },
+    phone: { type: String, required: true },
+    notes: { type: String },
+  },
+  paymentMethod: {
+    type: String,
+    enum: ["COD"],
+    default: "COD",
+    required: true,
+  },
+  paymentStatus: {
+    type: String,
+    enum: ["pending", "completed"],
+    default: "pending",
+  },
 });
 
 module.exports = mongoose.model("Order", orderSchema);

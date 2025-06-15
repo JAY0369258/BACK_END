@@ -23,3 +23,9 @@ form {
   padding: 10px;
   border-radius: 5px;
 }
+#admin-link {
+  display: none; /* Ẩn mặc định */
+}
+.product img {
+  object-fit: cover;
+}
