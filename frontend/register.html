@@ -4,53 +4,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>E-commerce - Register</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Register</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 
 <body>
-    <header>
-        <h1 class="text-center py-3 bg-dark text-white">E-commerce Store</h1>
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-            <div class="container">
-                <div class="navbar-nav">
-                    <a class="nav-link" href="index.html">Products</a>
-                    <a class="nav-link" href="cart.html">Cart</a>
-                    <a class="nav-link" href="orders.html">Orders</a>
-                    <a class="nav-link" href="login.html">Login</a>
-                    <a class="nav-link" href="register.html">Register</a>
-                    <span class="nav-link" id="user-status">Not logged in</span>
-                </div>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <div class="navbar-nav">
+                <a class="nav-link" href="index.html">Products</a>
+                <a class="nav-link" href="cart.html">Cart <span id="cart-count" class="badge bg-primary">0</span></a>
+                <a class="nav-link" href="orders.html">Orders</a>
+                <a class="nav-link" href="login.html" id="login-link">Login</a>
+                <a class="nav-link active" href="register.html">Register</a>
+                <a class="nav-link" href="admin.html" id="admin-link" style="display: none;">Admin</a>
+                <a class="nav-link" href="#" id="logout-link" style="display: none;">Logout</a>
+                <span class="nav-link" id="user-status">Not logged in</span>
             </div>
-        </nav>
-    </header>
-    <main class="container mt-4">
+        </div>
+    </nav>
+
+    <div class="container mt-4">
         <h2>Register</h2>
-        <form id="register-form" class="col-md-6 mx-auto">
+        <form id="registerForm">
             <div class="mb-3">
-                <label for="name" class="form-label">Name:</label>
-                <input type="text" id="name" class="form-control" required>
+                <label for="email" class="form-label">Email address</label>
+                <input type="email" class="form-control" id="email" required>
             </div>
             <div class="mb-3">
-                <label for="email" class="form-label">Email:</label>
-                <input type="email" id="email" class="form-control" required>
+                <label for="password" class="form-label">Password</label>
+                <input type="password" class="form-control" id="password" required>
             </div>
             <div class="mb-3">
-                <label for="password" class="form-label">Password:</label>
-                <input type="password" id="password" class="form-control" required>
+                <label for="role" class="form-label">Role</label>
+                <select class="form-control" id="role">
+                    <option value="user">User</option>
+                    <option value="admin">Admin</option>
+                </select>
             </div>
-            <button type="submit" class="btn btn-primary">Register</button>
+            <button type="submit" class="btn btn-primary" id="registerButton">Register</button>
         </form>
-        <p id="register-error" class="text-danger mt-3"></p>
-    </main>
+        <p id="register-error" class="text-danger mt-2"></p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="scripts.js"></script>
     <script>
-        document.getElementById('register-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await register();
+        document.addEventListener('DOMContentLoaded', () => {
+            updateUserStatus();
+            const registerForm = document.getElementById('registerForm');
+            if (registerForm) {
+                registerForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    await register();
+                });
+            }
         });
-        document.addEventListener('DOMContentLoaded', updateUserStatus);
     </script>
 </body>
 

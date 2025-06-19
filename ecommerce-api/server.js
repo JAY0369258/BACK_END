@@ -22,7 +22,7 @@ app.use(
   })
 );
 app.use(express.json());
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads", express.static("uploads")); //upload anh
 
 // Routes
 const productRoutes = require("./routes/productRoutes");

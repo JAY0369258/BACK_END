@@ -1,31 +1,31 @@
 const express = require("express");
 const router = express.Router();
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const authMiddleware = require("../middleware/auth");
 
 // Register
 router.post("/register", async (req, res) => {
   try {
-    const { name, email, password } = req.body;
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
+    console.log("POST /auth/register - Request body:", req.body);
+    const { email, password, role } = req.body;
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: "Email already exists" });
+      console.log("POST /auth/register - Email already exists:", email);
+      return res.status(400).json({ message: "User already exists" });
     }
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = new User({
-      name,
       email,
       password: hashedPassword,
-      role: "user",
+      role: role || "user",
     });
     await user.save();
-    res.status(201).json({ message: "User registered successfully" });
+    console.log("POST /auth/register - User saved:", user);
+    res.status(201).json({ message: "Registered successfully" });
   } catch (error) {
+    console.error("POST /auth/register - Error:", error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -33,27 +33,32 @@ router.post("/register", async (req, res) => {
 // Login
 router.post("/login", async (req, res) => {
   try {
+    console.log("POST /auth/login - Request body:", req.body);
     const { email, password } = req.body;
-    if (!email || !password) {
-      return res
-        .status(400)
-        .json({ message: "Email and password are required" });
-    }
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      console.log("POST /auth/login - User not found:", email);
+      return res.status(400).json({ message: "Invalid credentials" });
     }
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: "Invalid credentials" });
+      console.log("POST /auth/login - Password mismatch for:", email);
+      return res.status(400).json({ message: "Invalid credentials" });
     }
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
-    console.log("Login - Generated token for user:", user._id, token); // Debug token
+    const token = jwt.sign(
+      { userId: user._id, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+    console.log(
+      "POST /auth/login - Token generated for:",
+      email,
+      "Role:",
+      user.role
+    );
     res.json({ token, role: user.role });
   } catch (error) {
-    console.error("Login error:", error);
+    console.error("POST /auth/login - Error:", error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -61,14 +66,23 @@ router.post("/login", async (req, res) => {
 // Get current user
 router.get("/me", authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select("-password");
+    console.log("GET /auth/me - User ID:", req.user._id);
+    const user = await User.findById(req.user._id).select("-password");
     if (!user) {
+      console.log("GET /auth/me - User not found");
       return res.status(404).json({ message: "User not found" });
     }
     res.json(user);
   } catch (error) {
+    console.error("GET /auth/me - Error:", error);
     res.status(500).json({ message: error.message });
   }
+});
+
+// Logout (optional)
+router.post("/logout", (req, res) => {
+  console.log("POST /auth/logout");
+  res.json({ message: "Logged out successfully" });
 });
 
 module.exports = router;
