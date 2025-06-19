@@ -9,17 +9,45 @@ const authMiddleware = require("../middleware/auth");
 router.post("/register", async (req, res) => {
   try {
     console.log("POST /auth/register - Request body:", req.body);
-    const { email, password, role } = req.body;
+    const { name, email, password } = req.body;
+    if (!name || !email || !password) {
+      console.log("POST /auth/register - Missing required fields");
+      return res
+        .status(400)
+        .json({ message: "All fields (name, email, password) are required" });
+    }
+
+    // Validate email must be @gmail.com
+    if (!email.endsWith("@gmail.com")) {
+      console.log("POST /auth/register - Invalid email domain:", email);
+      return res
+        .status(400)
+        .json({ message: "Only @gmail.com emails are allowed" });
+    }
+
+    // Validate password (at least 6 characters, contains letters and numbers)
+    if (!/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/.test(password)) {
+      console.log("POST /auth/register - Invalid password:", password);
+      return res
+        .status(400)
+        .json({
+          message:
+            "Password must be at least 6 characters and contain both letters and numbers",
+        });
+    }
+
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       console.log("POST /auth/register - Email already exists:", email);
       return res.status(400).json({ message: "User already exists" });
     }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = new User({
+      name,
       email,
       password: hashedPassword,
-      role: role || "user",
+      role: "user", // Mặc định role là 'user'
     });
     await user.save();
     console.log("POST /auth/register - User saved:", user);

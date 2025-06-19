@@ -73,14 +73,17 @@ router.post(
   async (req, res) => {
     try {
       console.log("POST /products - Body:", req.body, "File:", req.file);
-      const { name, price, description } = req.body;
-      if (!name || !price) {
-        return res.status(400).json({ message: "Name and price are required" });
+      const { name, price, description, brand } = req.body;
+      if (!name || !price || !brand) {
+        return res
+          .status(400)
+          .json({ message: "Name, price, and brand are required" });
       }
       const product = new Product({
         name,
         price: parseFloat(price),
         description,
+        brand,
         image: req.file ? `/uploads/${req.file.filename}` : null,
       });
       await product.save();
@@ -109,11 +112,12 @@ router.put(
         "File:",
         req.file
       );
-      const { name, price, description } = req.body;
+      const { name, price, description, brand } = req.body;
       const updateData = {
         name,
         price: parseFloat(price),
         description,
+        brand,
       };
       if (req.file) {
         updateData.image = `/uploads/${req.file.filename}`;

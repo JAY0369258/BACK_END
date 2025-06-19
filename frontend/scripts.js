@@ -274,40 +274,40 @@ async function updateCartCount() {
 
 async function fetchProducts() {
   try {
-    console.log("Fetching products from:", `${API_URL}/products`);
+    console.log("fetchProducts - Fetching products");
     const response = await fetch(`${API_URL}/products`);
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(
-        errorData.message ||
-          `Failed to fetch products (status: ${response.status})`
-      );
+      throw new Error("Failed to fetch products");
     }
     const products = await response.json();
-    console.log("Products received:", products);
+    console.log("fetchProducts - Products received:", products);
     const productList = document.getElementById("product-list");
     if (!productList) {
-      console.warn("Product list element not found");
+      console.warn("fetchProducts - Product list element not found");
       return;
     }
     productList.innerHTML = "";
-    if (products.length === 0) {
+    if (!Array.isArray(products) || products.length === 0) {
       productList.innerHTML = "<p>No products available.</p>";
       return;
     }
     products.forEach((product) => {
       const div = document.createElement("div");
-      div.className = "product card mb-3 col-md-4";
+      div.className = "card mb-3";
       div.innerHTML = `
         <div class="card-body">
+          <h5 class="card-title">${product.name}</h5>
+          <p class="card-text">Price: $${product.price.toFixed(2)}</p>
+          <p class="card-text">Description: ${product.description || "N/A"}</p>
+          <p class="card-text">Brand: ${
+            product.brand || "N/A"
+          }</p> <!-- Thêm hiển thị brand -->
           ${
             product.image
-              ? `<img src="${API_URL}${product.image}" alt="${product.name}" class="img-fluid mb-3" style="max-width: 100px;">`
+              ? `<img src="${API_URL}${product.image}" class="card-img-top" alt="${product.name}" style="max-width: 200px;">`
               : ""
           }
-          <h5 class="card-title">${product.name}</h5>
-          <p class="card-text">Price: $${product.price}</p>
-          <button class="btn btn-primary" onclick="addToCart('${
+          <button class="btn btn-primary btn-sm" onclick="addToCart('${
             product._id
           }')">Add to Cart</button>
         </div>
@@ -315,7 +315,7 @@ async function fetchProducts() {
       productList.appendChild(div);
     });
   } catch (error) {
-    console.error("Error fetching products:", error);
+    console.error("fetchProducts - Error:", error);
     const productList = document.getElementById("product-list");
     if (productList)
       productList.innerHTML = `<p class="text-danger">Error loading products: ${error.message}</p>`;
@@ -484,27 +484,17 @@ async function placeOrder(shippingInfo, paymentMethod) {
 async function fetchAdminProducts() {
   const token = getToken();
   if (!token) {
-    console.log("fetchAdminProducts - No token, redirecting to login.html");
+    alert("Please login to view products");
     window.location.href = "login.html";
     return;
   }
   try {
-    console.log(
-      "fetchAdminProducts - Fetching products from:",
-      `${API_URL}/products`
-    );
+    console.log("fetchAdminProducts - Fetching products");
     const response = await fetch(`${API_URL}/products`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      if (response.status === 401) {
-        localStorage.removeItem("token");
-        alert("Session expired. Please login again.");
-        window.location.href = "login.html";
-        return;
-      }
-      throw new Error(errorData.message || "Failed to fetch products");
+      throw new Error("Failed to fetch products");
     }
     const products = await response.json();
     console.log("fetchAdminProducts - Products received:", products);
@@ -514,24 +504,27 @@ async function fetchAdminProducts() {
       return;
     }
     productList.innerHTML = "";
-    if (products.length === 0) {
+    if (!Array.isArray(products) || products.length === 0) {
       productList.innerHTML = "<p>No products available.</p>";
       return;
     }
     products.forEach((product) => {
       const div = document.createElement("div");
-      div.className = "product card mb-3 col-md-4";
+      div.className = "card mb-3";
       div.innerHTML = `
         <div class="card-body">
-          ${
-            product.image
-              ? `<img src="${API_URL}${product.image}" alt="${product.name}" class="img-fluid mb-3" style="max-width: 100px;">`
-              : ""
-          }
           <h5 class="card-title">${product.name}</h5>
-          <p class="card-text">Price: $${product.price}</p>
-          <p class="card-text">${product.description || ""}</p>
-          <button class="btn btn-warning btn-sm me-2" onclick="editProduct('${
+          <p class="card-text">Price: $${product.price.toFixed(2)}</p>
+          <p class="card-text">Description: ${product.description || "N/A"}</p>
+          <p class="card-text">Brand: ${
+            product.brand || "N/A"
+          }</p> <!-- Thêm hiển thị brand -->
+          <p class="card-text">Image: ${
+            product.image
+              ? `<img src="${API_URL}${product.image}" width="100">`
+              : "N/A"
+          }</p>
+          <button class="btn btn-info btn-sm" onclick="editProduct('${
             product._id
           }')">Edit</button>
           <button class="btn btn-danger btn-sm" onclick="deleteProduct('${
@@ -678,6 +671,7 @@ async function editProduct(productId) {
     document.getElementById("name").value = product.name;
     document.getElementById("price").value = product.price;
     document.getElementById("description").value = product.description || "";
+    document.getElementById("brand").value = product.brand || ""; // Thêm trường brand
     document.getElementById("image").value = "";
     document.getElementById("submitProduct").textContent = "Update Product";
     document.getElementById("cancelEdit").style.display = "inline-block";
@@ -726,3 +720,308 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
+///
+async function fetchAdminOrders() {
+  const token = getToken();
+  if (!token) {
+    console.log("fetchAdminOrders - No token, redirecting to login.html");
+    window.location.href = "login.html";
+    return;
+  }
+  try {
+    console.log(
+      "fetchAdminOrders - Fetching orders from:",
+      `${API_URL}/orders`
+    );
+    const response = await fetch(`${API_URL}/orders`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        alert("Session expired. Please login again.");
+        window.location.href = "login.html";
+        return;
+      }
+      throw new Error(errorData.message || "Failed to fetch orders");
+    }
+    const orders = await response.json();
+    console.log("fetchAdminOrders - Orders received:", orders);
+    const orderList = document.getElementById("order-list");
+    if (!orderList) {
+      console.warn("fetchAdminOrders - Order list element not found");
+      return;
+    }
+    orderList.innerHTML = "";
+    if (orders.length === 0) {
+      orderList.innerHTML = "<p>No orders available.</p>";
+      return;
+    }
+    orders.forEach((order) => {
+      const div = document.createElement("div");
+      div.className = "order card mb-3 col-md-12";
+      div.innerHTML = `
+        <div class="card-body">
+          <h5 class="card-title">Order #${order._id}</h5>
+          <p class="card-text">Customer Email: ${
+            order.user ? order.user.email : "N/A"
+          }</p>
+          <p class="card-text">Recipient: ${
+            order.shippingInfo
+              ? order.shippingInfo.recipientName || "N/A"
+              : "N/A"
+          }</p>
+          <p class="card-text">Phone: ${
+            order.shippingInfo ? order.shippingInfo.phone || "N/A" : "N/A"
+          }</p>
+          <p class="card-text">Address: ${
+            order.shippingInfo
+              ? [
+                  order.shippingInfo.street,
+                  order.shippingInfo.district,
+                  order.shippingInfo.city,
+                ]
+                  .filter(Boolean)
+                  .join(", ") || "N/A"
+              : "N/A"
+          }</p>
+          <p class="card-text">Total: $${(order.totalPrice || 0).toFixed(2)}</p>
+          <p class="card-text">Status: ${order.status || "N/A"}</p>
+          <p class="card-text">Payment Method: ${
+            order.paymentMethod || "N/A"
+          }</p>
+          <p class="card-text">Created: ${
+            order.createdAt ? new Date(order.createdAt).toLocaleString() : "N/A"
+          }</p>
+          <button class="btn btn-info btn-sm me-2" onclick="viewOrderDetails('${
+            order._id
+          }')">View Details</button>
+          <button class="btn btn-warning btn-sm me-2" onclick="updateOrderStatus('${
+            order._id
+          }')">Update Status</button>
+        </div>
+      `;
+      orderList.appendChild(div);
+    });
+  } catch (error) {
+    console.error("fetchAdminOrders - Error:", error);
+    const orderList = document.getElementById("order-list");
+    if (orderList)
+      orderList.innerHTML = `<p class="text-danger">Error loading orders: ${error.message}</p>`;
+  }
+}
+async function viewOrderDetails(orderId) {
+  const token = getToken();
+  if (!token) {
+    alert("Please login to view order details");
+    window.location.href = "login.html";
+    return;
+  }
+  try {
+    console.log("viewOrderDetails - Fetching order:", orderId);
+    const response = await fetch(`${API_URL}/orders/${orderId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      throw new Error("Failed to fetch order details");
+    }
+    const order = await response.json();
+    console.log("viewOrderDetails - Order fetched:", order);
+    alert(
+      `Order Details:\nTotal: $${order.total.toFixed(2)}\nStatus: ${
+        order.status
+      }\nShipping: ${JSON.stringify(order.shippingInfo)}\nItems: ${order.items
+        .map((item) => `${item.product.name} x${item.quantity}`)
+        .join(", ")}`
+    );
+  } catch (error) {
+    console.error("viewOrderDetails - Error:", error);
+    alert(`Error fetching order details: ${error.message}`);
+  }
+}
+async function updateOrderStatus(orderId) {
+  const token = getToken();
+  if (!token) {
+    alert("Please login to update order status");
+    window.location.href = "login.html";
+    return;
+  }
+  const newStatus = prompt(
+    "Enter new status (processing/completed/cancelled):"
+  );
+  if (
+    !newStatus ||
+    !["processing", "completed", "cancelled"].includes(newStatus)
+  ) {
+    alert("Invalid status!");
+    return;
+  }
+  try {
+    console.log(
+      "updateOrderStatus - Updating order:",
+      orderId,
+      "to status:",
+      newStatus
+    );
+    const response = await fetch(`${API_URL}/orders/${orderId}/status`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (!response.ok) {
+      throw new Error("Failed to update order status");
+    }
+    const order = await response.json();
+    console.log("updateOrderStatus - Order updated:", order);
+    alert("Order status updated successfully!");
+    fetchAdminOrders();
+  } catch (error) {
+    console.error("updateOrderStatus - Error:", error);
+    alert(`Error updating order status: ${error.message}`);
+  }
+}
+async function generateReport() {
+  const token = getToken();
+  if (!token) {
+    console.log("generateReport - No token, redirecting to login.html");
+    window.location.href = "login.html";
+    return;
+  }
+  try {
+    console.log(
+      "generateReport - Fetching orders for report from:",
+      `${API_URL}/orders`
+    );
+    const response = await fetch(`${API_URL}/orders`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || "Failed to fetch orders for report");
+    }
+    const orders = await response.json();
+    console.log("generateReport - Orders received:", orders);
+
+    const totalRevenue = orders.reduce(
+      (sum, order) => sum + (order.totalPrice || 0),
+      0
+    );
+    const totalOrders = orders.length;
+
+    document.getElementById(
+      "total-revenue"
+    ).textContent = `$${totalRevenue.toFixed(2)}`;
+    document.getElementById("total-orders").textContent = totalOrders;
+
+    const detailedReport = document.getElementById("detailed-report");
+    detailedReport.innerHTML = "<h6>Detailed Report</h6><ul>";
+    orders.forEach((order) => {
+      detailedReport.innerHTML += `<li>Order #${order._id}: $${(
+        order.totalPrice || 0
+      ).toFixed(2)} - ${order.status} (${new Date(
+        order.createdAt
+      ).toLocaleDateString()})</li>`;
+    });
+    detailedReport.innerHTML += "</ul>";
+  } catch (error) {
+    console.error("generateReport - Error:", error);
+    const reportContent = document.getElementById("report-content");
+    if (reportContent)
+      reportContent.innerHTML = `<p class="text-danger">Error generating report: ${error.message}</p>`;
+  }
+}
+async function fetchOrders() {
+  const token = getToken();
+  if (!token) {
+    console.log("fetchOrders - No token, redirecting to login.html");
+    window.location.href = "login.html";
+    return;
+  }
+  try {
+    console.log(
+      "fetchOrders - Fetching orders from:",
+      `${API_URL}/orders/user`
+    );
+    const response = await fetch(`${API_URL}/orders/user`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        localStorage.removeItem("token");
+        alert("Session expired. Please login again.");
+        window.location.href = "login.html";
+        return;
+      }
+      throw new Error(errorData.message || "Failed to fetch orders");
+    }
+    const orders = await response.json();
+    console.log("fetchOrders - Orders received:", orders); // Debug log
+    const orderList = document.getElementById("order-list");
+    if (!orderList) {
+      console.warn("fetchOrders - Order list element not found");
+      return;
+    }
+    orderList.innerHTML = "";
+    if (!Array.isArray(orders) || orders.length === 0) {
+      orderList.innerHTML = "<p>No orders available.</p>";
+      return;
+    }
+    orders.forEach((order) => {
+      if (!order || typeof order !== "object") {
+        console.warn("fetchOrders - Invalid order data:", order);
+        return;
+      }
+      const div = document.createElement("div");
+      div.className = "order card mb-3 col-md-12";
+      div.innerHTML = `
+        <div class="card-body">
+          <h5 class="card-title">Order #${order._id || "N/A"}</h5>
+          <p class="card-text">Total: $${(order.totalPrice != null
+            ? order.totalPrice
+            : 0
+          ).toFixed(2)}</p>
+          <p class="card-text">Status: ${order.status || "N/A"}</p>
+          <p class="card-text">Payment Method: ${
+            order.paymentMethod || "N/A"
+          }</p>
+          <p class="card-text">Created: ${
+            order.createdAt ? new Date(order.createdAt).toLocaleString() : "N/A"
+          }</p>
+          <p class="card-text">Recipient: ${
+            order.shippingInfo
+              ? order.shippingInfo.recipientName || "N/A"
+              : "N/A"
+          }</p>
+          <p class="card-text">Phone: ${
+            order.shippingInfo ? order.shippingInfo.phone || "N/A" : "N/A"
+          }</p>
+          <p class="card-text">Address: ${
+            order.shippingInfo
+              ? [
+                  order.shippingInfo.street,
+                  order.shippingInfo.district,
+                  order.shippingInfo.city,
+                ]
+                  .filter(Boolean)
+                  .join(", ") || "N/A"
+              : "N/A"
+          }</p>
+          <button class="btn btn-info btn-sm" onclick="viewOrderDetails('${
+            order._id || ""
+          }')">View Details</button>
+        </div>
+      `;
+      orderList.appendChild(div);
+    });
+  } catch (error) {
+    console.error("fetchOrders - Error:", error);
+    const orderList = document.getElementById("order-list");
+    if (orderList)
+      orderList.innerHTML = `<p class="text-danger">Error loading orders: ${error.message}</p>`;
+  }
+}

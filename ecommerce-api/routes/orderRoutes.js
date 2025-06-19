@@ -4,6 +4,7 @@ const Order = require("../models/Order");
 const Cart = require("../models/Cart");
 const authMiddleware = require("../middleware/auth");
 const nodemailer = require("nodemailer");
+const User = require("../models/User");
 
 // Cấu hình transporter cho nodemailer
 const transporter = nodemailer.createTransport({
@@ -31,20 +32,19 @@ router.post("/", authMiddleware, async (req, res) => {
       console.log("POST /orders - Cart is empty");
       return res.status(400).json({ message: "Cart is empty" });
     }
-    const { shippingInfo, paymentMethod } = req.body;
-    if (
-      !shippingInfo ||
-      !shippingInfo.recipientName ||
-      !shippingInfo.street ||
-      !shippingInfo.district ||
-      !shippingInfo.city ||
-      !shippingInfo.phone
-    ) {
-      console.log("POST /orders - Invalid shipping info");
-      return res
-        .status(400)
-        .json({ message: "Complete shipping information is required" });
+    let { shippingInfo, paymentMethod } = req.body;
+    if (!shippingInfo) {
+      shippingInfo = {};
+      console.log("POST /orders - No shipping info provided, setting default");
     }
+    shippingInfo = {
+      recipientName: shippingInfo.recipientName || "Unknown",
+      street: shippingInfo.street || "Not specified",
+      district: shippingInfo.district || "Not specified",
+      city: shippingInfo.city || "Not specified",
+      phone: shippingInfo.phone || "Not specified",
+      notes: shippingInfo.notes || "",
+    };
     if (paymentMethod !== "COD") {
       console.log("POST /orders - Invalid payment method:", paymentMethod);
       return res.status(400).json({ message: "Only COD is supported" });
@@ -60,7 +60,7 @@ router.post("/", authMiddleware, async (req, res) => {
         quantity: item.quantity,
         price: item.product.price,
       })),
-      totalPrice,
+      totalPrice, // Đảm bảo totalPrice được lưu
       status: "pending",
       shippingInfo,
       paymentMethod,
@@ -133,35 +133,73 @@ router.post("/", authMiddleware, async (req, res) => {
   }
 });
 
-// Get user's orders
 router.get("/", authMiddleware, async (req, res) => {
   try {
-    console.log("GET /orders - User:", req.user._id);
-    const orders = await Order.find({ user: req.user._id }).populate(
-      "items.product"
-    );
+    console.log("GET /orders");
+    const orders = await Order.find()
+      .populate("user", "email")
+      .populate("items.product");
     res.json(orders);
   } catch (error) {
     console.error("GET /orders - Error:", error);
     res.status(500).json({ message: error.message });
   }
 });
-// Update order status (admin only)
-router.put("/:id", authMiddleware, async (req, res) => {
-  if (req.user.role !== "admin")
-    return res.status(403).json({ message: "Unauthorized" });
+
+router.get("/user", authMiddleware, async (req, res) => {
   try {
-    const { status } = req.body;
-    if (!["pending", "completed", "cancelled"].includes(status)) {
-      return res.status(400).json({ message: "Invalid status" });
+    console.log("GET /orders/user - User:", req.user._id);
+    const orders = await Order.find({ user: req.user._id })
+      .populate("user", "email")
+      .populate("items.product");
+    res.json(orders);
+  } catch (error) {
+    console.error("GET /orders/user - Error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.get("/:id", authMiddleware, async (req, res) => {
+  try {
+    console.log("GET /orders/:id - ID:", req.params.id);
+    const order = await Order.findById(req.params.id)
+      .populate("user", "email")
+      .populate("items.product");
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
     }
-    const order = await Order.findById(req.params.id);
-    if (!order) return res.status(404).json({ message: "Order not found" });
-    order.status = status;
-    await order.save();
     res.json(order);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error("GET /orders/:id - Error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.put("/:id/status", authMiddleware, async (req, res) => {
+  try {
+    console.log(
+      "PUT /orders/:id/status - ID:",
+      req.params.id,
+      "Body:",
+      req.body
+    );
+    const { status } = req.body;
+    if (!["processing", "completed", "cancelled"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    );
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+    console.log("PUT /orders/:id/status - Order updated:", order);
+    res.json(order);
+  } catch (error) {
+    console.error("PUT /orders/:id/status - Error:", error);
+    res.status(500).json({ message: error.message });
   }
 });
 

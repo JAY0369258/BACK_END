@@ -1,44 +1,38 @@
 const mongoose = require("mongoose");
 
 const orderSchema = new mongoose.Schema({
-  user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true }, // Sử dụng 'user' thay vì 'userId'
   items: [
     {
-      product: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Product",
-        required: true,
-      },
-      quantity: { type: Number, required: true, min: 1 },
-      price: { type: Number, required: true, min: 0 },
+      product: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
+      quantity: Number,
+      price: Number,
     },
   ],
-  totalPrice: { type: Number, required: true, min: 0 },
+  totalPrice: { type: Number, required: true },
   status: {
     type: String,
-    enum: ["pending", "confirmed", "shipped", "delivered", "cancelled"],
+    enum: ["pending", "processing", "completed", "cancelled"],
+    default: "pending",
+  },
+  shippingInfo: {
+    recipientName: String,
+    street: String,
+    district: String,
+    city: String,
+    phone: String,
+    notes: String,
+  },
+  paymentMethod: { type: String, enum: ["COD"], required: true },
+  paymentStatus: {
+    type: String,
+    enum: ["pending", "paid"],
     default: "pending",
   },
   createdAt: { type: Date, default: Date.now },
-  shippingInfo: {
-    recipientName: { type: String, required: true },
-    street: { type: String, required: true },
-    district: { type: String, required: true },
-    city: { type: String, required: true },
-    phone: { type: String, required: true },
-    notes: { type: String },
-  },
-  paymentMethod: {
-    type: String,
-    enum: ["COD"],
-    default: "COD",
-    required: true,
-  },
-  paymentStatus: {
-    type: String,
-    enum: ["pending", "completed"],
-    default: "pending",
-  },
 });
+
+// Tắt strictPopulate để tránh lỗi nếu có trường không khớp
+orderSchema.set("strictPopulate", false);
 
 module.exports = mongoose.model("Order", orderSchema);
